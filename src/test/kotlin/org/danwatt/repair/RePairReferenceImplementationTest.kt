@@ -1,14 +1,11 @@
 package org.danwatt.repair
 
-import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertWith
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.util.*
-import java.util.function.Supplier
 
-class RePairSlowNaieveImplementationReferenceImplementationTest {
+class RePairReferenceImplementationTest {
 
     @Test
     fun `inner workings part1`() {
@@ -40,7 +37,9 @@ class RePairSlowNaieveImplementationReferenceImplementationTest {
         assertThat(m(sequence) { it.nextValidItem }).isEqualTo(listOf(2, null, 3, 5, null, 6, 8, null, -1))
         assertThat(m(sequence) { it.previousValidItem }).isEqualTo(listOf(-1, null, 0, 2, null, 3, 5, null, 6))
 
-        println(pairs)
+        pairs.forEach { (t, u) ->
+            println("\t$t : $u")
+        }
 
         assertThat(pairs.keys.toList()).isEqualTo(listOf("X" to "C"))
         assertWith(pairs.values, { p ->

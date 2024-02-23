@@ -31,10 +31,9 @@ data class RPair<T>(
 
         other as RPair<*>
 
-        if (v1 != other.v1) return false
-        if (v2 != other.v2) return false
-
-        return true
+        return if (v1 != other.v1) false
+        else if (v2 != other.v2) false
+        else true
     }
 
     override fun hashCode(): Int {
@@ -46,16 +45,16 @@ data class RPair<T>(
 
 class RePairReferenceImplementation {
 
-    fun compress(
-        input: List<String>,
-        generatePairMarker: (Int, Pair<String, String>) -> String,
+    fun <T> compress(
+        input: List<T>,
+        generatePairMarker: (Int, Pair<T, T>) -> T,
         stopAfterIterations: Int = Integer.MAX_VALUE,
-    ): RePairResult<String> {
-        val outputPairs = mutableMapOf<String, Pair<String, String>>()
+    ): RePairResult<T> {
+        val outputPairs = mutableMapOf<T, Pair<T, T>>()
 
         val (sequence, pairs) = buildPairsAndSequence(input)
 
-        val queue: PriorityQueue<RPair<String>> = PriorityQueue(PRIORITY_COMPARATOR)
+        val queue: PriorityQueue<RPair<T>> = PriorityQueue(PRIORITY_COMPARATOR)
         queue.addAll(pairs.values.filter { it.positions.size >= 3 })
 
         var iterationNumber = 0
@@ -81,20 +80,12 @@ class RePairReferenceImplementation {
             }
         }
 
-
         return RePairResult(sequence.mapNotNull { it.value }.toList(), outputPairs)
     }
 
-    private fun dumpSequence(sequence: MutableList<RSeq<String>>) {
-        println("IX\tV\tPI\tNI")
-        sequence.forEachIndexed { idx, item ->
-            println("$idx\t${item.value ?: "❌"}\t${item.previousValidItem}\t${item.nextValidItem}")
-        }
-    }
-
-    fun buildPairsAndSequence(items: List<String>): Pair<MutableList<RSeq<String>>, MutableMap<Pair<String, String>, RPair<String>>> {
-        val sequence = mutableListOf<RSeq<String>>()
-        val pairs = mutableMapOf<Pair<String, String>, RPair<String>>()
+    fun <T> buildPairsAndSequence(items: List<T>): Pair<MutableList<RSeq<T>>, MutableMap<Pair<T, T>, RPair<T>>> {
+        val sequence = mutableListOf<RSeq<T>>()
+        val pairs = mutableMapOf<Pair<T, T>, RPair<T>>()
 
         var sequencePosition = 0
         while (sequencePosition < (items.size - 1)) {
@@ -127,17 +118,17 @@ class RePairReferenceImplementation {
         return Pair(sequence, pairs)
     }
 
-    fun iterate(
-        sequence: MutableList<RSeq<String>>,
-        pairs: MutableMap<Pair<String, String>, RPair<String>>,
-        pairToReplace: RPair<String>,
-        newPairIdentifier: String,
-        queue: PriorityQueue<RPair<String>>,
+    fun <T> iterate(
+        sequence: MutableList<RSeq<T>>,
+        pairs: MutableMap<Pair<T, T>, RPair<T>>,
+        pairToReplace: RPair<T>,
+        newPairIdentifier: T,
+        queue: PriorityQueue<RPair<T>>,
     ) {
 
         val cp = pairToReplace.v1 to pairToReplace.v2
 
-        val pairsToAddToQueue = mutableListOf<RPair<String>>()
+        val pairsToAddToQueue = mutableListOf<RPair<T>>()
         pairToReplace.positions.forEach { indexFirstPartOfPair ->
             val pairPart1 = sequence[indexFirstPartOfPair]
             val indexSecondPartOfPair = pairPart1.nextValidItem
@@ -158,62 +149,74 @@ class RePairReferenceImplementation {
 
             removeFromSeqLinkedList(pairPart1, pairPart2, oneAfterPair, indexFirstPartOfPair)
 
-            // TODO: Working on eliminating the duplication here
-            val secondValue = pairToReplace.v1
-            val ix = indexBeforeCurrentPair
             val firstValue = oneBeforePair?.value
 
             if (firstValue != null) {
-                val pairToDecrement = firstValue to secondValue
-                if (pairToDecrement != currentPair) {
-                    decrementPair(pairs, pairToDecrement, ix)
-                }
-                val pairToAdd = firstValue to newPairIdentifier
-                if (pairToAdd != currentPair) {
-                    val p = incrementPair(
-                        pairs = pairs,
-                        pairToAdd = pairToAdd,
-                        currentPosition = ix,
-                        sequence = sequence
-                    )
-
-                    if (p != null) {
-                        pairsToAddToQueue.add(p)
-                    }
-                }
+                addRemove(
+                    firstValue to pairToReplace.v1,
+                    firstValue to newPairIdentifier,
+                    currentPair,
+                    pairs,
+                    indexBeforeCurrentPair,
+                    indexBeforeCurrentPair,
+                    sequence,
+                    pairsToAddToQueue
+                )
             }
 
 
             if (oneAfterPair != null) {
-                val pairToDecrement = pairToReplace.v2 to oneAfterPair.value!!
-                if (pairToDecrement != currentPair) {
-                    decrementPair(pairs, pairToDecrement, indexSecondPartOfPair)
-                }
-                val pairToAdd = newPairIdentifier to oneAfterPair.value!!
-                if (pairToAdd != currentPair) {
-                    val p = incrementPair(
-                        pairs = pairs,
-                        pairToAdd = pairToAdd,
-                        currentPosition = indexFirstPartOfPair,
-                        sequence = sequence
-                    )
-                    if (p != null) {
-                        pairsToAddToQueue.add(p)
-                    }
-                }
+                addRemove(
+                    pairToReplace.v2!! to oneAfterPair.value!!,
+                    newPairIdentifier!! to oneAfterPair.value!!,
+                    currentPair,
+                    pairs,
+                    indexSecondPartOfPair,
+                    indexFirstPartOfPair,
+                    sequence,
+                    pairsToAddToQueue
+                )
             }
         }
 
         queue.addAll(pairsToAddToQueue.filter { it.positions.size >= 3 })
     }
 
+    private fun <T> addRemove(
+        pairToDecrement: Pair<T, T>,
+        pairToAdd: Pair<T, T>,
+        currentPair: Pair<T?, T?>,
+        pairs: MutableMap<Pair<T, T>, RPair<T>>,
+        position1: Int,
+        position2: Int,
+        sequence: MutableList<RSeq<T>>,
+        pairsToAddToQueue: MutableList<RPair<T>>,
+    ) {
+        if (pairToDecrement != currentPair) {
+            decrementPair(pairs, pairToDecrement, position1)
+        }
 
-    private fun incrementPair(
-        pairs: MutableMap<Pair<String, String>, RPair<String>>,
-        pairToAdd: Pair<String, String>,
+        if (pairToAdd != currentPair) {
+            val p = incrementPair(
+                pairs = pairs,
+                pairToAdd = pairToAdd,
+                currentPosition = position2,
+                sequence = sequence
+            )
+
+            if (p != null) {
+                pairsToAddToQueue.add(p)
+            }
+        }
+    }
+
+
+    private fun <T> incrementPair(
+        pairs: MutableMap<Pair<T, T>, RPair<T>>,
+        pairToAdd: Pair<T, T>,
         currentPosition: Int,
-        sequence: MutableList<RSeq<String>>,
-    ): RPair<String>? {
+        sequence: MutableList<RSeq<T>>,
+    ): RPair<T>? {
         var rp = pairs[pairToAdd]
         var created = false
         if (rp == null) {
@@ -239,9 +242,9 @@ class RePairReferenceImplementation {
         }
     }
 
-    private fun decrementPair(
-        pairs: MutableMap<Pair<String, String>, RPair<String>>,
-        p: Pair<String, String>,
+    private fun <T> decrementPair(
+        pairs: MutableMap<Pair<T, T>, RPair<T>>,
+        p: Pair<T, T>,
         offsetForThisPair: Int,
     ) {
         pairs[p]?.apply {
@@ -249,10 +252,10 @@ class RePairReferenceImplementation {
         }
     }
 
-    private fun removeFromSeqLinkedList(
-        current: RSeq<String>,
-        toRemove: RSeq<String>,
-        twoAhead: RSeq<String>?,
+    private fun <T>removeFromSeqLinkedList(
+        current: RSeq<T>,
+        toRemove: RSeq<T>,
+        twoAhead: RSeq<T>?,
         currentPosition: Int,
     ) {
         if (null != twoAhead) {

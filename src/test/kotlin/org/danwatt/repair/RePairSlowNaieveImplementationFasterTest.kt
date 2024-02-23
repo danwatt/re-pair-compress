@@ -6,11 +6,11 @@ import org.junit.jupiter.api.Test
 class RePairSlowNaieveImplementationFasterTest {
     val compressor = RePairFasterNaieveImplementation<Int>()
 
-    fun pairMarkerGenerator(pairNumber: Int): Int {
+    fun pairMarkerGenerator(pairNumber: Int, p: Pair<Int,Int>): Int {
         return 100 + pairNumber
     }
 
-    fun pairMarkerGeneratorString(pairNumber: Int): String {
+    fun pairMarkerGeneratorString(pairNumber: Int, p: Pair<String,String>): String {
         return "[Pair $pairNumber]"
     }
 
