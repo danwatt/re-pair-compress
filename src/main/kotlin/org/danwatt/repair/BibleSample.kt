@@ -82,6 +82,8 @@ fun main() {
 
     val bytesNeededForTokens = results.compressed.size * 2
     val bytesNeededForPairs = results.pairs.size * 2
+    println("Distinct input tokens: ${distinct}")
+    println("Pairs generated: ${results.pairs.size}")
     println("Storage requirements: ${bytesNeededForPairs + bytesNeededForTokens}")
 
     val gr = results.compressed.groupBy { it }
