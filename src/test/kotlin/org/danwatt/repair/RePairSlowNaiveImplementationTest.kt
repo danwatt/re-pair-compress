@@ -1,38 +1,39 @@
 package org.danwatt.repair
 
 import org.assertj.core.api.Assertions.assertThat
-import org.danwatt.repair.experiments.RePairFasterNaieveImplementation
+import org.danwatt.repair.experiments.RePairSlowNaiveImplementation
 import org.junit.jupiter.api.Test
 
-class RePairSlowNaieveImplementationFasterTest {
-    val compressor = RePairFasterNaieveImplementation<Int>()
+class RePairSlowNaiveImplementationTest {
+    private val compressor = RePairSlowNaiveImplementation<Int>()
 
-    fun pairMarkerGenerator(pairNumber: Int, p: Pair<Int,Int>): Int {
+    private fun pairMarkerGenerator(pairNumber: Int): Int {
         return 100 + pairNumber
     }
 
-    fun pairMarkerGeneratorString(pairNumber: Int, p: Pair<String,String>): String {
+    private fun pairMarkerGeneratorString(pairNumber: Int): String {
         return "[Pair $pairNumber]"
     }
 
     @Test
     fun `do not compress when there are fewer than 3 pairs`() {
-        val result = compressor.compress(listOf(1, 1, 1, 1), ::pairMarkerGenerator)
+        val result = compressor.compress(listOf(1, 1, 1, 1), -1, ::pairMarkerGenerator)
         assertThat(result.pairs).isEmpty()
         assertThat(result.compressed).isEqualTo(listOf(1, 1, 1, 1))
     }
 
     @Test
     fun `three repetitions of the same pair but no recursion`() {
-        val result = compressor.compress(listOf(1, 1, 1, 1, 1, 1), ::pairMarkerGenerator)
+        val result = compressor.compress(listOf(1, 1, 1, 1, 1, 1), -1, ::pairMarkerGenerator)
         assertThat(result.pairs).hasSize(1).containsEntry(100, 1 to 1)
         assertThat(result.compressed).isEqualTo(listOf(100, 100, 100))
     }
 
     @Test
     fun `String variation`() {
-        val result = RePairFasterNaieveImplementation<String>().compress(
+        val result = RePairSlowNaiveImplementation<String>().compress(
             listOf("test", "test", "test", "test", "test", "test"),
+            "[marker]",
             ::pairMarkerGeneratorString
         )
         assertThat(result.pairs).hasSize(1).containsEntry("[Pair 0]", "test" to "test")
@@ -54,7 +55,7 @@ class RePairSlowNaieveImplementationFasterTest {
                 1, 1,
                 1, 1,//3
                 1, 1
-            ), ::pairMarkerGenerator
+            ), -1, ::pairMarkerGenerator
         )
         assertThat(result.compressed).isEqualTo(listOf(101, 101, 101))
         assertThat(result.pairs).hasSize(2)

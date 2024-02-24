@@ -26,7 +26,7 @@ class BibleParser {
         }
     }
 
-    fun tokenize(text: String): List<String> =
+    private fun tokenize(text: String): List<String> =
         StringTokenizer(text, " .,;:?!()-", true)
             .asSequence()
             .filter { it != " " }

@@ -13,9 +13,7 @@ data class RSeq<T>(
     //When a pair is replaced, the second value in the pair is no longer needed
     var previousValidItem: Int = -1,
     var nextValidItem: Int = -1,
-) {
-
-}
+)
 
 data class RPair<T>(
     val v1: T,

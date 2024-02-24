@@ -3,9 +3,9 @@ package org.danwatt.repair.experiments
 import org.danwatt.repair.RePairResult
 import java.util.*
 
-class RePairSlowNaieveImplementation<T> {
+class RePairSlowNaiveImplementation<T> {
     @Suppress("UNUSED_PARAMETER")
-    fun doNothingCallback(
+    private fun doNothingCallback(
         iteration: Int,
         working: List<T>,
         pairs: Map<T, Pair<T, T>>,

@@ -2,7 +2,7 @@
 Reference implementation, max of 51944 pairs:
 949523 to 422000 (ratio 2.250054502369668:1)
 422000 *2 + 51944*4 = 1,051,776
-~20kish 1 byte eligible, thats still > 1mb
+~20kish 1 byte eligible, that's still > 1mb
 
 
 ## "Faster" Old method:

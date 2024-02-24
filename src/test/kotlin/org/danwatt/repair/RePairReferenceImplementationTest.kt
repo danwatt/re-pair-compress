@@ -83,7 +83,7 @@ class RePairReferenceImplementationTest {
     private fun m(sequence: MutableList<RSeq<String>>, supplier: (RSeq<String>) -> Int?) =
         sequence.map { if (it.value == null) null else supplier.invoke(it) }
 
-    fun pairMarkerGeneratorString(pairNumber: Int, p: Pair<String, String>): String {
+    private fun pairMarkerGeneratorString(pairNumber: Int, p: Pair<String, String>): String {
         return "[Pair $pairNumber]"
     }
 

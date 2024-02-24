@@ -4,9 +4,9 @@ import org.danwatt.repair.RePairResult
 import java.util.*
 import kotlin.collections.ArrayList
 
-class RePairFasterNaieveImplementation<T> {
+class RePairFasterNaiveImplementation<T> {
     @Suppress("UNUSED_PARAMETER")
-    fun doNothingCallback(
+    private fun doNothingCallback(
         iteration: Int,
         working: List<T?>,
         pairs: Map<T, Pair<T, T>>,
@@ -124,7 +124,7 @@ class RePairFasterNaieveImplementation<T> {
         var previousCandidate: CandidatePair<T>? = null
         while (i < working.size - 1) {
             if (previousCandidate != null) {
-                //Dont allow candidates to overlap. Ie: [A A] A and A [A A] are not allowed. The second is rejected
+                //Don't allow candidates to overlap. Ie: [A A] A and A [A A] are not allowed. The second is rejected
                 if (previousCandidate.lastOffset == i - 1 && previousCandidate.sameAs(working[i]!! to working[i + 1]!!)) {
                     i++
                     continue
