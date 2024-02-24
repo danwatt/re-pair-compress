@@ -1,4 +1,4 @@
-package org.danwatt.repair
+package org.danwatt.repair.bible
 
 import java.nio.charset.Charset
 import java.util.*

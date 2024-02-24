@@ -1,11 +1,12 @@
-package org.danwatt.repair
+package org.danwatt.repair.bible
 
+import org.danwatt.repair.RePairReferenceImplementation
+import org.danwatt.repair.experiments.CandidatePair
 import kotlin.io.path.Path
 import kotlin.io.path.writeLines
 
 fun callback(
     iteration: Int,
-    working: List<String?>,
     pairs: Map<String, Pair<String, String>>,
     currentPair: String,
     candidatePair: CandidatePair<String>,

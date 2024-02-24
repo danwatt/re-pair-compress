@@ -1,4 +1,4 @@
-package org.danwatt.repair
+package org.danwatt.repair.experiments
 
 data class CandidatePair<T>(
     val v1: T,

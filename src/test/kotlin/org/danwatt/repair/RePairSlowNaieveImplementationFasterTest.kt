@@ -1,6 +1,7 @@
 package org.danwatt.repair
 
 import org.assertj.core.api.Assertions.assertThat
+import org.danwatt.repair.experiments.RePairFasterNaieveImplementation
 import org.junit.jupiter.api.Test
 
 class RePairSlowNaieveImplementationFasterTest {

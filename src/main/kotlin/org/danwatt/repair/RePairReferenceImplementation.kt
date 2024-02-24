@@ -36,11 +36,7 @@ data class RPair<T>(
         else true
     }
 
-    override fun hashCode(): Int {
-        var result = v1?.hashCode() ?: 0
-        result = 31 * result + (v2?.hashCode() ?: 0)
-        return result
-    }
+    override fun hashCode(): Int = (31 * (v1?.hashCode() ?: 0) + (v2?.hashCode() ?: 0))
 }
 
 class RePairReferenceImplementation {
@@ -218,28 +214,19 @@ class RePairReferenceImplementation {
         sequence: MutableList<RSeq<T>>,
     ): RPair<T>? {
         var rp = pairs[pairToAdd]
-        var created = false
         if (rp == null) {
             rp = RPair(pairToAdd.first, pairToAdd.second, positions = mutableListOf(currentPosition))
             pairs[pairToAdd] = rp
-            created = true
-        } else {
-            if (rp.positions.isEmpty()) {
-                rp.positions.add(currentPosition)
-            } else {
-                //Don't allow overlapping pairs
-                val lastSequencePosition = rp.positions.last()
-                val lastItem = sequence[lastSequencePosition]
-                if (lastItem.nextValidItem != currentPosition) {
-                    rp.positions.add(currentPosition)
-                }
-            }
+            return rp
+        } else if (rp.positions.isEmpty()) {
+            rp.positions.add(currentPosition)
         }
-        return if (created) {
-            rp
-        } else {
-            null
+        //Don't allow overlapping pairs
+        else if (sequence[rp.positions.last()].nextValidItem != currentPosition) {
+            rp.positions.add(currentPosition)
         }
+        return null
+
     }
 
     private fun <T> decrementPair(

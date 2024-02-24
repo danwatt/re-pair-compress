@@ -1,5 +1,6 @@
-package org.danwatt.repair
+package org.danwatt.repair.experiments
 
+import org.danwatt.repair.RePairResult
 import java.util.*
 
 class RePairSlowNaieveImplementation<T> {
