@@ -37,24 +37,27 @@ data class RPair<T>(
     override fun hashCode(): Int = (31 * (v1?.hashCode() ?: 0) + (v2?.hashCode() ?: 0))
 }
 
-class RePairReferenceImplementation {
+val minPairs = 4
+
+class RePairCompress {
 
     fun <T> compress(
         input: List<T>,
         generatePairMarker: (Int, Pair<T, T>) -> T,
         stopAfterIterations: Int = Integer.MAX_VALUE,
+        progress: Boolean = true
     ): RePairResult<T> {
         val outputPairs = mutableMapOf<T, Pair<T, T>>()
 
         val (sequence, pairs) = buildPairsAndSequence(input)
 
         val queue: PriorityQueue<RPair<T>> = PriorityQueue(PRIORITY_COMPARATOR)
-        queue.addAll(pairs.values.filter { it.positions.size >= 3 })
+        queue.addAll(pairs.values.filter { it.positions.size >= minPairs })
 
         var iterationNumber = 0
         while (queue.isNotEmpty()) {
             val highestPriority = queue.poll()
-            if (highestPriority.positions.size < 3) {
+            if (highestPriority.positions.size < minPairs) {
                 continue
             }
             val p = highestPriority.v1 to highestPriority.v2
@@ -66,7 +69,7 @@ class RePairReferenceImplementation {
 
             iterationNumber++
 
-            if (iterationNumber % 100 == 0) {
+            if (progress && iterationNumber % 100 == 0) {
                 println("Done with $iterationNumber")
             }
             if (iterationNumber == stopAfterIterations) {
@@ -173,7 +176,7 @@ class RePairReferenceImplementation {
             }
         }
 
-        queue.addAll(pairsToAddToQueue.filter { it.positions.size >= 3 })
+        queue.addAll(pairsToAddToQueue.filter { it.positions.size >= minPairs })
     }
 
     private fun <T> addRemove(

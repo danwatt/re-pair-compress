@@ -5,12 +5,12 @@ import org.assertj.core.api.Assertions.assertWith
 import org.junit.jupiter.api.Test
 import java.util.*
 
-class RePairReferenceImplementationTest {
+class RePairCompressTest {
 
     @Test
     fun `inner workings part1`() {
         val items = listOf("A", "B", "C", "A", "B", "C", "A", "B", "C")
-        val (sequence, pairs) = RePairReferenceImplementation().buildPairsAndSequence(items)
+        val (sequence, pairs) = RePairCompress().buildPairsAndSequence(items)
 
         assertThat(sequence.map { it.value }).isEqualTo(items)
         assertThat(sequence.map { it.nextValidItem }).isEqualTo(listOf(1, 2, 3, 4, 5, 6, 7, 8, -1))
@@ -28,7 +28,7 @@ class RePairReferenceImplementationTest {
     @Test
     fun `inner workings iterate`() {
         val items = listOf("A", "B", "C", "A", "B", "C", "A", "B", "C")
-        val rePair = RePairReferenceImplementation()
+        val rePair = RePairCompress()
         val (sequence, pairs) = rePair.buildPairsAndSequence(items)
 
         rePair.iterate(sequence, pairs, pairs["A" to "B"]!!, "X", PriorityQueue())
@@ -53,7 +53,7 @@ class RePairReferenceImplementationTest {
     @Test
     fun `inner workings build and iterate with overlaps`() {
         val items = listOf("T", "T", "T", "T", "T", "T")
-        val rePair = RePairReferenceImplementation()
+        val rePair = RePairCompress()
         val (sequence, pairs) = rePair.buildPairsAndSequence(items)
 
         assertThat(sequence.map { it.value }).isEqualTo(listOf("T", "T", "T", "T", "T", "T"))
@@ -89,7 +89,7 @@ class RePairReferenceImplementationTest {
 
     @Test
     fun `String variation with overlapping repetition`() {
-        val result = RePairReferenceImplementation().compress(
+        val result = RePairCompress().compress(
             listOf("test", "test", "test", "test", "test", "test"),
             ::pairMarkerGeneratorString
         )
@@ -99,7 +99,7 @@ class RePairReferenceImplementationTest {
 
     @Test
     fun `String variation 2`() {
-        val result = RePairReferenceImplementation().compress(
+        val result = RePairCompress().compress(
             listOf("A", "B", "C", "A", "B", "C", "A", "B", "C"),
             ::pairMarkerGeneratorString
         )
@@ -112,7 +112,7 @@ class RePairReferenceImplementationTest {
     @Test
     fun `bigger test`() {
         val items = generateSequence { "A" }.take(12).toList()
-        val rePair = RePairReferenceImplementation()
+        val rePair = RePairCompress()
         val (sequence, pairs) = rePair.buildPairsAndSequence(items)
 
         rePair.iterate(sequence, pairs, pairs["A" to "A"]!!, "X", PriorityQueue())
@@ -132,7 +132,7 @@ class RePairReferenceImplementationTest {
     @Test
     fun `large test`() {
         val items = generateSequence { "A" }.take(100).toList()
-        val rePair = RePairReferenceImplementation()
+        val rePair = RePairCompress()
 
         val compressed = rePair.compress(items, ::pairMarkerGeneratorString)
         assertThat(compressed.compressed).isEqualTo(listOf("[Pair 4]","[Pair 4]","[Pair 4]","[Pair 1]"))
@@ -143,6 +143,4 @@ class RePairReferenceImplementationTest {
             .containsEntry("[Pair 3]", "[Pair 2]" to "[Pair 2]")
             .containsEntry("[Pair 4]", "[Pair 3]" to "[Pair 3]")
     }
-
-
 }

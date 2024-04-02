@@ -18,6 +18,7 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation("org.apache.commons:commons-compress:1.21")
     testImplementation(kotlin("test"))
     testImplementation("org.assertj:assertj-core")
 }
