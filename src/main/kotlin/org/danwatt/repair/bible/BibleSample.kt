@@ -2,9 +2,7 @@
 
 package org.danwatt.repair.bible
 
-import org.apache.commons.compress.compressors.CompressorStreamFactory
 import org.danwatt.repair.*
-import java.io.ByteArrayOutputStream
 import kotlin.io.path.Path
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeLines
@@ -97,7 +95,6 @@ private fun trial(
 
     val results = RePairCompress().compress(
         input = tokens,
-        generatePairMarker = ::pairMarkerGenerator,
         stopAfterIterations = maxIterations,
         progress = false
     )
@@ -116,18 +113,15 @@ private fun trial(
 
     println("${tokens.size} to ${results.compressed.size} (ratio ${(tokens.size.toDouble() / results.compressed.size)}:1)")
 
-    val bytesNeededForTokens = results.compressed.size * 2
-    val bytesNeededForPairs = results.pairs.size * 2
     println("Distinct input tokens: $numDistinctTokens")
     println("Pairs generated: ${results.pairs.size}")
-    println("Storage requirements: ${bytesNeededForPairs + bytesNeededForTokens}")
 
     val gr = results.compressed.groupBy { it }
 
     val tokenListing =
-        results.pairs.map { p -> "# ${p.key}=${p.value.first}|${p.value.second}(${gr[p.key]?.size ?: 0})" }
+        results.pairs.map { p -> "# $${p.allTokens().joinToString("|")} (${gr[p]?.size ?: 0})" }
 
-    Path("/tmp/bible-repair.txt").writeLines(tokenListing + results.compressed)
+    Path("/tmp/bible-repair.txt").writeLines(tokenListing + results.compressed.map { it.toString() })
     writeTest(results, lexicon, reserved)
 
 //    stopWordTest(results)
@@ -154,6 +148,8 @@ Switching to a minimum of 4:
 90: 946006 (VB: 181, PH: 101790, Body: 844035)
 100:943244 (VB: 201, PH: 101790, Body: 841253)
 103:943712 (VB: 207, PH: 101146, Body: 842359). It goes up after 103
+RF: 942374
+Just stop tokens: 942964 - Still less than GBA by ~5k
 
 Compare to GBA: 955,290
 
@@ -164,7 +160,8 @@ fun writeTest(
     reserved: Int,
 ) {
     val g: Map<String, List<String>> = results.compressed
-        .filter { (it.startsWith("[") && it.endsWith("]")) || (it.lowercase() in stopTokens) }
+        .filter { it.allTokens().all { t->t.lowercase() in stopTokens } }
+        .map { it.allTokens().joinToString("|") }
         .groupBy { it }
 
     val singleByteTokensAndPairs: List<String> = g.values
@@ -175,8 +172,8 @@ fun writeTest(
     singleByteTokensAndPairs.forEach {
         println(it)
     }
-    val doubleBytePairs: List<String> = results.pairs.entries
-        .map { it.key }
+    val doubleBytePairs: List<String> = results.pairs
+        .map { it.allTokens().joinToString("|") }
         .filterNot { it in singleByteTokensAndPairs }
         .sorted()
     val doubleByteTokens = lexicon.filterNot { it in singleByteTokensAndPairs }.sorted()
@@ -187,9 +184,10 @@ fun writeTest(
     tokensInIndexOrder.forEachIndexed { index, s ->
         m[s] = index.toUInt()
     }
-    val asIntegers = results.compressed.map {
-        m[it]!!
-    }.toUIntArray()
+    val asIntegers = results.compressed
+        .map { it.allTokens().joinToString("|") }
+        .map { m[it]!! }
+        .toUIntArray()
 
     //TODO: There may be some simple compression gains to be made if we sort the pairs
     // and use a variable bit output
@@ -205,9 +203,9 @@ fun writeTest(
     val pairHeader = UByteArray(2 + results.pairs.size * 4)
     varByteHeader[0] = results.pairs.size.toUShort().upperUByte()
     varByteHeader[1] = results.pairs.size.toUShort().lowerUByte()
-    results.pairs.entries.forEachIndexed { index, e ->
-        val p1 = m[e.value.first]!!.toUShort()
-        val p2 = m[e.value.second]!!.toUShort()
+    results.pairs.forEachIndexed { index, e ->
+        val p1 = m[e.pair.first.allTokens().joinToString("|")]!!.toUShort()
+        val p2 = m[e.pair.second.allTokens().joinToString("|")]!!.toUShort()
         pairHeader[2 + index * 4 + 0] = p1.upperUByte()
         pairHeader[2 + index * 4 + 1] = p1.lowerUByte()
         pairHeader[2 + index * 4 + 2] = p2.upperUByte()
