@@ -2,7 +2,9 @@
 
 package org.danwatt.repair.bible
 
+import org.apache.commons.compress.compressors.CompressorStreamFactory
 import org.danwatt.repair.*
+import java.io.ByteArrayOutputStream
 import kotlin.io.path.Path
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeLines
@@ -119,7 +121,7 @@ private fun trial(
     val gr = results.compressed.groupBy { it }
 
     val tokenListing =
-        results.pairs.map { p -> "# $${p.allTokens().joinToString("|")} (${gr[p]?.size ?: 0})" }
+        results.pairs.map { p -> "# $$p (${gr[p]?.size ?: 0})" }
 
     Path("/tmp/bible-repair.txt").writeLines(tokenListing + results.compressed.map { it.toString() })
     writeTest(results, lexicon, reserved)
@@ -150,42 +152,69 @@ Switching to a minimum of 4:
 103:943712 (VB: 207, PH: 101146, Body: 842359). It goes up after 103
 RF: 942374
 Just stop tokens: 942964 - Still less than GBA by ~5k
+Encoded : 943063 (VB: 207, PH: 100966, Body: 841890) <--- uh.... why did it jump ever so slightly when changing toString()?
 
 Compare to GBA: 955,290
+: Question - does that include the lexicon and skip list? I think it does - need to circle back and check, because
+the Lexicon itself is going to take 15kb or so.
 
  */
 
 fun writeTest(
-    results: RePairResult<String>, lexicon: List<String>,
+    results: RePairResult<String>,
+    lexicon: List<String>,
     reserved: Int,
 ) {
-    val g: Map<String, List<String>> = results.compressed
-        .filter { it.allTokens().all { t->t.lowercase() in stopTokens } }
-        .map { it.allTokens().joinToString("|") }
+    val stopWordTokensAndPairsGrouped: Map<String, List<String>> = results.compressed
+        .filter { it.allTokens().all { t -> t.lowercase() in stopTokens } }
+        .map { it.toString() }
         .groupBy { it }
 
-    val singleByteTokensAndPairs: List<String> = g.values
+    val singleByteTokensAndPairs: List<String> = stopWordTokensAndPairsGrouped.values
         .sortedByDescending { it.size }
         .take(reserved)
         .map { it[0] }
 
-    singleByteTokensAndPairs.forEach {
-        println(it)
-    }
+    println("== Top $reserved Tokens and Pairs ==")
+    singleByteTokensAndPairs.forEach(::println)
+
     val doubleBytePairs: List<String> = results.pairs
-        .map { it.allTokens().joinToString("|") }
+        .map { it.toString() }
         .filterNot { it in singleByteTokensAndPairs }
         .sorted()
+
     val doubleByteTokens = lexicon.filterNot { it in singleByteTokensAndPairs }.sorted()
+
+    /*
+    Build a list of all output tokens, in a priority order:
+    1) Single byte token/pairs - so these get the indexes 0-Reserved - keeping in mind that these numbers point to a lookup table
+    2) Double byte pairs - Reserved - total number of remaining pairs (T)
+    3) Double byte tokens
+     */
     val tokensInIndexOrder: List<String> = singleByteTokensAndPairs +
-            doubleByteTokens +
-            doubleBytePairs
+            doubleBytePairs +
+            doubleByteTokens
+
+    println()
+    println("Tokens in index order:")
+    tokensInIndexOrder.take(1024).chunked(8).forEach { chunk->
+        println(chunk.joinToString("\t"))
+    }
+
+    println()
+
+    println("Final pairs in index order:")
+    doubleBytePairs.takeLast(128).chunked(8).forEach { chunk->
+        println(chunk.joinToString("\t"))
+    }
+
+
     val m = mutableMapOf<String, UInt>()
     tokensInIndexOrder.forEachIndexed { index, s ->
         m[s] = index.toUInt()
     }
     val asIntegers = results.compressed
-        .map { it.allTokens().joinToString("|") }
+        .map { it.toString() }
         .map { m[it]!! }
         .toUIntArray()
 
@@ -204,8 +233,8 @@ fun writeTest(
     varByteHeader[0] = results.pairs.size.toUShort().upperUByte()
     varByteHeader[1] = results.pairs.size.toUShort().lowerUByte()
     results.pairs.forEachIndexed { index, e ->
-        val p1 = m[e.pair.first.allTokens().joinToString("|")]!!.toUShort()
-        val p2 = m[e.pair.second.allTokens().joinToString("|")]!!.toUShort()
+        val p1 = m[e.pair.first.toString()]!!.toUShort()
+        val p2 = m[e.pair.second.toString()]!!.toUShort()
         pairHeader[2 + index * 4 + 0] = p1.upperUByte()
         pairHeader[2 + index * 4 + 1] = p1.lowerUByte()
         pairHeader[2 + index * 4 + 2] = p2.upperUByte()
@@ -217,14 +246,14 @@ fun writeTest(
     val complete = varByteHeader + pairHeader + encoded
     println("Encoded : ${complete.size} (VB: ${varByteHeader.size}, PH: ${pairHeader.size}, Body: ${encoded.size})")
     Path("/tmp/out.bin").writeBytes(complete.toByteArray())
-//
-//    CompressorStreamFactory.getSingleton().compressorOutputStreamProviders.forEach { type, stream ->
-//        try {
-//            val b = ByteArrayOutputStream()
-//            val s = stream.createCompressorOutputStream(type, b)
-//            s.write(encoded.toByteArray())
-//            s.close()
-//            println("$type: ${b.toByteArray().size}")
-//        } catch (_: Throwable) {}
-//    }
+
+    CompressorStreamFactory.getSingleton().compressorOutputStreamProviders.forEach { type, stream ->
+        try {
+            val b = ByteArrayOutputStream()
+            val s = stream.createCompressorOutputStream(type, b)
+            s.write(encoded.toByteArray())
+            s.close()
+            println("$type: ${b.toByteArray().size}")
+        } catch (_: Throwable) {}
+    }
 }

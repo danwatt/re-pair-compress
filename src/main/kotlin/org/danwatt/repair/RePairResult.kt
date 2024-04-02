@@ -26,7 +26,7 @@ class Token<T>(val token: T) : OutToken<T>() {
 
 class PairToken<T>(val pair: Pair<OutToken<T>,OutToken<T>>) : OutToken<T>() {
     override fun allTokens(): List<T> = pair.first.allTokens() + pair.second.allTokens()
-    override fun toString(): String = allTokens().joinToString("|")
+    override fun toString(): String = "<"+pair.first.allTokens()+"," + pair.second.allTokens()+">"
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
