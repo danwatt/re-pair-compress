@@ -77,7 +77,9 @@ class RePairCompress {
             }
         }
 
-        return RePairResult(sequence.mapNotNull { it.value }.toList(), outputPairs.keys.toList())
+        val compressed = sequence.mapNotNull { it.value }.toList()
+        val allPairs = outputPairs.keys.toList()
+        return RePairResult(compressed, allPairs)
     }
 
     fun <T> buildPairsAndSequence(items: List<T>): Pair<MutableList<RSeq<T>>, MutableMap<PairToken<T>, RPair<T>>> {

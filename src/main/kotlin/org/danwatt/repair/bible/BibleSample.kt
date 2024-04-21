@@ -112,7 +112,6 @@ private fun trial(
 //        }
 //    }
 
-
     println("${tokens.size} to ${results.compressed.size} (ratio ${(tokens.size.toDouble() / results.compressed.size)}:1)")
 
     println("Distinct input tokens: $numDistinctTokens")
@@ -120,10 +119,14 @@ private fun trial(
 
     val gr = results.compressed.groupBy { it }
 
-    val tokenListing =
-        results.pairs.map { p -> "# $$p (${gr[p]?.size ?: 0})" }
+    // This count is the number of times the pair showed up in the compressed output
+    // Not the number of times it showed up used by other pairs
+    val tokenListing = listOf("== TOKENS ==") +
+        results.pairs.map { p -> "$p (${gr[p]?.size ?: 0})" }.sorted()
 
-    Path("/tmp/bible-repair.txt").writeLines(tokenListing + results.compressed.map { it.toString() })
+    Path("/tmp/bible-repair.txt").writeLines(tokenListing +
+            listOf("\n", "== TEXT ==") +
+            results.compressed.map { it.toString() })
     writeTest(results, lexicon, reserved)
 
 //    stopWordTest(results)
@@ -209,13 +212,13 @@ fun writeTest(
     }
 
 
-    val m = mutableMapOf<String, UInt>()
+    val tokenToNumber = mutableMapOf<String, UInt>()
     tokensInIndexOrder.forEachIndexed { index, s ->
-        m[s] = index.toUInt()
+        tokenToNumber[s] = index.toUInt()
     }
     val asIntegers = results.compressed
         .map { it.toString() }
-        .map { m[it]!! }
+        .map { tokenToNumber[it]!! }
         .toUIntArray()
 
     //TODO: There may be some simple compression gains to be made if we sort the pairs
@@ -233,8 +236,10 @@ fun writeTest(
     varByteHeader[0] = results.pairs.size.toUShort().upperUByte()
     varByteHeader[1] = results.pairs.size.toUShort().lowerUByte()
     results.pairs.forEachIndexed { index, e ->
-        val p1 = m[e.pair.first.toString()]!!.toUShort()
-        val p2 = m[e.pair.second.toString()]!!.toUShort()
+        val k1 = e.pair.first.toString()
+        val k2 = e.pair.second.toString()
+        val p1 = tokenToNumber[k1]!!.toUShort()
+        val p2 = tokenToNumber[k2]!!.toUShort()
         pairHeader[2 + index * 4 + 0] = p1.upperUByte()
         pairHeader[2 + index * 4 + 1] = p1.lowerUByte()
         pairHeader[2 + index * 4 + 2] = p2.upperUByte()
