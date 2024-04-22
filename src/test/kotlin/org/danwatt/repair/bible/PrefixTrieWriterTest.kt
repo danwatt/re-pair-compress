@@ -113,16 +113,16 @@ class PrefixTrieWriterTest {
             "Testing",
             "testy"
         )
-        assertThat(PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify()).containsExactly(
-            "0D", "i", "n", "g",
-            "0E", "e", "d",
-            "1F",
-            "T", "e", "s", "t",
-            "0D",// Testing
-            "0E",// Tested
-            "1E", // flip case
-            "0D", //testing
-            "0E", // tested
+        assertThat(PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify2()).containsExactly(
+            "0x0D", "ing",
+            "0x0E", "ed",
+            "0x1F",
+            "Test",
+            "0x0D",// Testing
+            "0x0E",// Tested
+            "0x1E", // flip case
+            "0x0D", //testing
+            "0x0E", // tested
             "y"
         )
     }
@@ -167,8 +167,9 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
         // 52_689 - with 16 suffixes
         // 49_763 with suffix capitalization rules
         // 49_377 with suffix optimiation 1
+        // 48_249 - flip case fix
         // tbd: vowel rule?
-        assertThat(out.size).isEqualTo(58_043)
+        assertThat(out.size).isEqualTo(48_249)
     }
 
     @Test
@@ -204,8 +205,8 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
             "0x10", // accepted
             "0x11", // acceptest
             "able", // acceptable
-            "0x06", // backspace 6 - acc
-            "acceptably", // this should not be fully spelled out
+            "0x01", // acceptabl...
+            "y",
             "0x03", "nce", // acceptance
             "0x03", "tion", // acception
             "0x07", "ss", // access
