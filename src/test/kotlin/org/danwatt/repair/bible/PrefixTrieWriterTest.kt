@@ -23,7 +23,6 @@ class PrefixTrieWriterTest {
     }
 
     val C31 = Char(31)
-    val C30 = Char(30)
     val C01 = Char(1)
     val C02 = Char(2)
 
@@ -40,11 +39,8 @@ class PrefixTrieWriterTest {
     @Test
     fun lowerAndUpper() {
         val words = listOf("a", "A", "B")
-        assertThat(PrefixTrieWriter().write(words)).containsExactly(
-            'A', // A
-            C30, // a
-            C01,
-            'B'
+        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
+            "A", "0x1E", "0x01", "B"
         )
     }
 
@@ -52,14 +48,57 @@ class PrefixTrieWriterTest {
     fun moreMixedCase() {
         val words = listOf("As", "as", "ash", "Ask", "ask")
         // Sorted: As as ash Ask ask
-        assertThat(PrefixTrieWriter().write(words).hexify()).containsExactly(
-            "A", "s",
-            "1E", // - adds both As and as, start lower case mode
+        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
+            "As",
+            "0x1E", // - adds both As and as, start lower case mode
             "h", // ash
-            "1E", // end of lower case, stack reverts to "As" - this should be a 1E
+            "0x1F",
+            "0x1E", // end of lower case, stack reverts to "As" - this should be a 1E
+            "0x01",
             "k",
-            "1E"// 1E/30 = Ask & ask
+            "0x1E"// 1E/30 = Ask & ask
             // final 31 not needed
+        )
+    }
+
+    @Test
+    fun mixedCaseAndBackspaces() {
+        val words = listOf("access", "Ace", "acknowledge", "Action", "advance", "Advise")
+        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
+            "access",
+            "0x1F",
+            "0x1E",
+            "0x04",
+            "e",
+            "0x1F",
+            "0x1E",
+            "0x01",
+            "knowledge",
+            "0x1F",
+            "0x1E",
+            "0x09",
+            "tion",
+            "0x1F",
+            "0x1E",
+            "0x05",
+            "dvance",
+            "0x1F",
+            "0x1E",
+            "0x04",
+            "ise"
+            /* OLD
+            "access",
+            "0x06",//Should be 0x04, followed by cap
+            "Ace",
+            "0x03",//Should be 0x01, followed by flip case
+            "acknowledge",
+            "0x0B",
+            "Action",
+            "0x06",
+            "advance",
+            "0x07",
+            "Advise"
+            */
         )
     }
 
@@ -168,8 +207,9 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
         // 49_763 with suffix capitalization rules
         // 49_377 with suffix optimiation 1
         // 48_249 - flip case fix
+        // 45_813 - flip case fix 2
         // tbd: vowel rule?
-        assertThat(out.size).isEqualTo(48_249)
+        assertThat(out.size).isEqualTo(45_813)
     }
 
     @Test
@@ -189,6 +229,28 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
 
         val out = PrefixTrieWriter().writeWithSuffixes(list, suffixes)
         assertThat(out.hexify2()).containsExactly(
+            "0x0D", "s",
+            "0x0E", "ing",
+            "0x0F", "eth",
+            "0x10", "ed",
+            "0x11", "est",
+            "0x1F", // End of suffixes
+            "abusing", "0x1F", "0x1E", "0x06", // End the word, flip case, backspace 6
+            "ccad", // Accad
+            "0x02", // Back 2
+            "ept", "0x1E", // Accept and accept, working is now "accept"
+            "0x0E", "0x0F", "0x10", "0x11", // Suffixes
+            "able", // acceptable
+            "0x01", "y", // acceptably
+            "0x03", "nce", // acceptance
+            "0x03", "tion", // acceptation
+            "0x07", "ss", "0x1F", "0x1E",
+            "0x03", "ho", "0x1F", "0x1E",
+            "0x02", "ompanied",
+            "0x03", "y",
+            "0x0E"
+
+            /*
             // Suffix header
             "0x0D", "s",
             "0x0E", "ing",
@@ -215,7 +277,8 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
             "0x05", // backspace 2, go to lower-case - + 1 byte
             "accompanied", // -3 bytes
             "0x03", "y",
-            "0x0E"
+            "0x0E"*
+             */
         )
         // savings : +1 -3 +1 -3 = -4 bytes saved
     }
@@ -235,7 +298,7 @@ private fun CharArray.hexify(): List<String> = this.map { it ->
 private fun CharArray.hexify2(): List<String> = this.joinToString("") { c ->
 
     if (c.code <= 31) {
-        " 0x"+c.code.toUByte().toHexString(format = HexFormat.UpperCase) +" "
+        " 0x" + c.code.toUByte().toHexString(format = HexFormat.UpperCase) + " "
     } else {
         c.toString()
     }
