@@ -1,10 +1,11 @@
-package org.danwatt.repair.bible
+package org.danwatt.repair.prefixtrie
 
+import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Disabled
+import org.danwatt.repair.bible.BibleParser
 import org.junit.jupiter.api.Test
-import kotlin.test.Ignore
 
+@ExperimentalStdlibApi
 class PrefixTrieWriterTest {
     @Test
     fun topSuffixes() {
@@ -29,97 +30,48 @@ class PrefixTrieWriterTest {
     @Test
     fun singleLetters() {
         val words = listOf("a", "b", "c")
-        assertThat(PrefixTrieWriter().write(words)).containsExactly(
-            'a', C01,
-            'b', C01,
-            'c'
-        )
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("a[01]b[01]c")
     }
 
     @Test
     fun lowerAndUpper() {
         val words = listOf("a", "A", "B")
-        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
-            "A", "0x1E", "0x01", "B"
-        )
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("A[1E][01]B")
     }
 
     @Test
     fun moreMixedCase() {
         val words = listOf("As", "as", "ash", "Ask", "ask")
-        // Sorted: As as ash Ask ask
-        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
-            "As",
-            "0x1E", // - adds both As and as, start lower case mode
-            "h", // ash
-            "0x1F",
-            "0x1E", // end of lower case, stack reverts to "As" - this should be a 1E
-            "0x01",
-            "k",
-            "0x1E"// 1E/30 = Ask & ask
-            // final 31 not needed
-        )
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("As[1E]h[1F][1E][01]k[1E]")
     }
 
     @Test
     fun mixedCaseAndBackspaces() {
         val words = listOf("access", "Ace", "acknowledge", "Action", "advance", "Advise")
-        assertThat(PrefixTrieWriter().write(words).hexify2()).containsExactly(
-            "access",
-            "0x1F",
-            "0x1E",
-            "0x04",
-            "e",
-            "0x1F",
-            "0x1E",
-            "0x01",
-            "knowledge",
-            "0x1F",
-            "0x1E",
-            "0x09",
-            "tion",
-            "0x1F",
-            "0x1E",
-            "0x05",
-            "dvance",
-            "0x1F",
-            "0x1E",
-            "0x04",
-            "ise"
-            /* OLD
-            "access",
-            "0x06",//Should be 0x04, followed by cap
-            "Ace",
-            "0x03",//Should be 0x01, followed by flip case
-            "acknowledge",
-            "0x0B",
-            "Action",
-            "0x06",
-            "advance",
-            "0x07",
-            "Advise"
-            */
-        )
+        assertThat(
+            PrefixTrieWriter().write(words).hexify3()
+        ).isEqualTo("access[1F][1E][04]e[1F][1E][01]knowledge[1F][1E][09]tion[1F][1E][05]dvance[1F][1E][04]ise")
     }
 
     @Test
     fun someBuilding() {
         val words = listOf("a", "an", "and")
-        assertThat(PrefixTrieWriter().write(words)).containsExactly(
-            'a', C31,
-            'n', C31,
-            'd'
-        )
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("a[1F]n[1F]d")
     }
 
     @Test
     fun backspacing() {
         val words = listOf("and", "ant", "ask")
-        assertThat(PrefixTrieWriter().write(words)).containsExactly(
-            'a', 'n', 'd', C01,
-            't', C02,
-            's', 'k'
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("and[01]t[02]sk")
+    }
+
+    @Test
+    fun longBackspace() {
+        val words = listOf(
+            "abcdefghijklmnopqrstuvwxyz",
+            "ace"
         )
+        assertThat(PrefixTrieWriter().write(words).hexify3()).isEqualTo("abcdefghijklmnopqrstuvwxyz[0C][0C][01]ce")
     }
 
     @Test
@@ -132,13 +84,9 @@ class PrefixTrieWriterTest {
             "toasting",
             "toasted"
         )
-        assertThat(PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify()).containsExactly(
-            "0D", "i", "n", "g",
-            "0E", "e", "d",
-            "1F",
-            "t", "e", "s", "t", "0D", "0E",
-            "03", "o", "a", "s", "t", "0D", "0E"
-        )
+        assertThat(
+            PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify3()
+        ).isEqualTo("[0D]ing[0E]ed[1F]test[0D][0E][03]oast[0D][0E]")
     }
 
     @Test
@@ -152,18 +100,9 @@ class PrefixTrieWriterTest {
             "Testing",
             "testy"
         )
-        assertThat(PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify2()).containsExactly(
-            "0x0D", "ing",
-            "0x0E", "ed",
-            "0x1F",
-            "Test",
-            "0x0D",// Testing
-            "0x0E",// Tested
-            "0x1E", // flip case
-            "0x0D", //testing
-            "0x0E", // tested
-            "y"
-        )
+        assertThat(
+            PrefixTrieWriter().write(words, maxSuffixCodes = 2).hexify3()
+        ).isEqualTo("[0D]ing[0E]ed[1F]Test[0D][0E][1E][0D][0E]y")
     }
 
     @Test
@@ -207,9 +146,9 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
         // 49_763 with suffix capitalization rules
         // 49_377 with suffix optimiation 1
         // 48_249 - flip case fix
-        // 45_813 - flip case fix 2
+        // 45823 - flip case fix 2
         // tbd: vowel rule?
-        assertThat(out.size).isEqualTo(45_813)
+        assertThat(out.size).isEqualTo(45823)
     }
 
     @Test
@@ -228,6 +167,7 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
         )
 
         val out = PrefixTrieWriter().writeWithSuffixes(list, suffixes)
+        assertThat(out.hexify3()).isEqualTo("[0D]s[0E]ing[0F]eth[10]ed[11]est[1F]abusing[1F][1E][06]ccad[02]ept[1E][0E][0F][10][11]able[01]y[03]nce[03]tion[07]ss[1F][1E][03]ho[1F][1E][02]ompanied[03]y[0E]")
         assertThat(out.hexify2()).containsExactly(
             "0x0D", "s",
             "0x0E", "ing",
@@ -249,58 +189,14 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
             "0x02", "ompanied",
             "0x03", "y",
             "0x0E"
-
-            /*
-            // Suffix header
-            "0x0D", "s",
-            "0x0E", "ing",
-            "0x0F", "eth",
-            "0x10", "ed",
-            "0x11", "est",
-            // Words
-            "0x1F", "abusing", // should be backspace 6, and flip : +1
-            "0x07", "Accad", // ccad
-            "0x02", "ept", // Accept
-            "0x1E", // accept
-            "0x0E", // accepting
-            "0x0F", // accepteth
-            "0x10", // accepted
-            "0x11", // acceptest
-            "able", // acceptable
-            "0x01", // acceptabl...
-            "y",
-            "0x03", "nce", // acceptance
-            "0x03", "tion", // acception
-            "0x07", "ss", // access
-            "0x06", // this should just be a backspace 3 with a capitalization +1 byte
-            "Accho", // - 3 bytes
-            "0x05", // backspace 2, go to lower-case - + 1 byte
-            "accompanied", // -3 bytes
-            "0x03", "y",
-            "0x0E"*
-             */
         )
-        // savings : +1 -3 +1 -3 = -4 bytes saved
+    }
+
+    @Test
+    fun kjvPartial2() {
+        val words = ". And God In and beginning created earth heaven the was without".split(' ')
+        val out = PrefixTrieWriter().write(words)
+        // This is incorrect
+        assertThat(out.hexify3()).isEqualTo(".[01]And[09]beginning[07]created[05]earth[1F][1E][03]God[1F][1E][06]heaven[1F][1E][02]In[1F][1E][03]the[03]was[02]ithout")
     }
 }
-
-
-@OptIn(ExperimentalStdlibApi::class)
-private fun CharArray.hexify(): List<String> = this.map { it ->
-    if (it.code <= 31) {
-        it.code.toUByte().toHexString(format = HexFormat.UpperCase)
-    } else {
-        it.toString()
-    }
-}
-
-@OptIn(ExperimentalStdlibApi::class)
-private fun CharArray.hexify2(): List<String> = this.joinToString("") { c ->
-
-    if (c.code <= 31) {
-        " 0x" + c.code.toUByte().toHexString(format = HexFormat.UpperCase) + " "
-    } else {
-        c.toString()
-    }
-}.split(" ").filter { it.isNotBlank() }
-

@@ -1,13 +1,16 @@
-@file:OptIn(ExperimentalStdlibApi::class)
-
-package org.danwatt.repair.bible
+package org.danwatt.repair.prefixtrie
 
 import java.util.*
+import java.util.logging.Logger
+import kotlin.math.min
 
+@ExperimentalStdlibApi
 class PrefixTrieWriter {
+    private val log = Logger.getLogger(PrefixTrieWriter::class.java.name)
 
     fun write(incomingWords: Collection<String>, maxSuffixCodes: Int = 0): CharArray {
-        val suffixes = topSuffixes(incomingWords, Math.min(maxSuffixCodes, 16))
+        println("Words are: ${incomingWords.joinToString(" ")}")
+        val suffixes = topSuffixes(incomingWords, min(maxSuffixCodes, 16))
         val suffixMapping: Map<String, Char> = suffixes.mapIndexed { index, s -> s to (Char(13 + index)) }.toMap()
         suffixMapping.forEach { (suffix, c) ->
             println("Suffix '$suffix' will be represented by character 0x${c.code.toUByte().toHexString()}")
@@ -44,26 +47,27 @@ class PrefixTrieWriter {
                 outputList.add(FLIP_CASE_MARKER)
                 addSuffixes(suffixMapping, workingWord, sortedIncoming, remainingWords, outputList)
                 continue
-            } else if (previousWord.isNotBlank() && workingWord.first().isUpperCase() != previousWord.first().isUpperCase()) {
-                println("Prefixes differ by case, flipping case")
+            } else if (previousWord.isNotBlank()
+                && workingWord.first().isUpperCase() != previousWord.first().isUpperCase()
+                && workingWord.first().isLetter()
+                && previousWord.first().isLetter()
+            ) {
+                println("Prefixes differ by case, flipping case ('$previousWord' vs '$workingWord')")
                 if (outputList.isEmpty() || outputList.last() != FLIP_CASE_MARKER) {
                     outputList.add(FLIP_CASE_MARKER)
                 }
                 previousWord = previousWord.flipFirstLetterCase()
-                preserveFlipCaseForOneIteration= true
+                preserveFlipCaseForOneIteration = true
             }
 
             val commonPrefix = commonPrefix(previousWord, workingWord)
-            val backspaces = when {
+            var backspaces = when {
                 commonPrefix.isNotEmpty() -> previousWord.length - commonPrefix.length
                 previousWord.isNotEmpty() -> workingWord.length
                 else -> 0
             }
 
             if (backspaces > 0) {
-                if (backspaces > 28) {
-                    throw IllegalArgumentException("Could not add $backspaces backspaces")
-                }
                 previousWord = commonPrefix
 
                 if (outputList.isNotEmpty() && outputList.last() == WORD_MARKER) {
@@ -76,7 +80,15 @@ class PrefixTrieWriter {
                 preserveFlipCaseForOneIteration = false
 
                 println("Adding $backspaces backspaces, top word is '$previousWord'. Common prefix is '$commonPrefix'")
-                outputList.add(Char(backspaces))
+
+                while (backspaces > 0) {
+                    if (backspaces > MAX_BACKSPACES) {
+                        outputList.add(Char(MAX_BACKSPACES))
+                    } else {
+                        outputList.add(Char(backspaces))
+                    }
+                    backspaces -= MAX_BACKSPACES
+                }
             }
             if (workingWord.startsWith(previousWord)) {
                 workingWord = workingWord.removePrefix(previousWord)
@@ -173,14 +185,16 @@ class PrefixTrieWriter {
     companion object {
         val WORD_MARKER = Char(31)      // 0x1F 31 = UNIT SEPARATOR
         val FLIP_CASE_MARKER = Char(30) // 0x1E
+        val MAX_BACKSPACES = 12
 
         fun topSuffixes(words: Collection<String>, maxSuffixCodes: Int = 0): List<String> {
+            val wordsAsSet = words.toSet()
             val suffixCounts = mutableMapOf<String, Int>()
-            words.forEach { str ->
+            wordsAsSet.forEach { str ->
                 (1..str.length).forEach { i ->
                     val suffix = str.substring(str.length - i)
                     val prefix = str.substring(0, str.length - i)
-                    if (words.contains(prefix)) {
+                    if (wordsAsSet.contains(prefix)) {
                         suffixCounts[suffix] = suffixCounts.getOrDefault(suffix, 0) + 1
                     }
                 }
@@ -189,25 +203,9 @@ class PrefixTrieWriter {
                 .asSequence()
                 .filter { it.value > 1 }
                 .sortedByDescending { it.key.length * it.value }
-                // top 64 just for debugging at the moment
-                .take(64)
-                .onEach {
-                    println("Suffix '${it.key}' could be as much as  ${it.key.length * it.value} bytes")
-                }
                 .take(maxSuffixCodes)
                 .map { it.key }
                 .toList()
         }
     }
 }
-
-private fun String.flipFirstLetterCase(): String =
-    if (this[0].isLowerCase()) {
-        this.replaceFirstChar { it.uppercaseChar() }
-    } else {
-        this.replaceFirstChar { it.lowercaseChar() }
-    }
-
-private fun String.differsOnlyByFirstCapitalization(other: String): Boolean =
-    this.equals(other, ignoreCase = true) && this.substring(1) == other.substring(1)
-
