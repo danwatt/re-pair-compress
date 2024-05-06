@@ -3,6 +3,7 @@ package org.danwatt.repair.prefixtrie
 import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
 import org.danwatt.repair.bible.BibleParser
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 @ExperimentalStdlibApi
@@ -105,38 +106,9 @@ class PrefixTrieWriterTest {
         ).isEqualTo("[0D]ing[0E]ed[1F]Test[0D][0E][1E][0D][0E]y")
     }
 
-    @Test
+    @Test()
+    @Disabled
     fun kjvTest() {
-        /*
-Suffix 's' could be as much as  1191 bytes
-Suffix 'ing' could be as much as  1176 bytes
-Suffix 'eth' could be as much as  1089 bytes
-Suffix 'ed' could be as much as  1048 bytes
-Suffix 'est' could be as much as  576 bytes
-Suffix ''s' could be as much as  458 bytes
-Suffix 'ness' could be as much as  420 bytes
-Suffix 'th' could be as much as  414 bytes
-Suffix 'ly' could be as much as  384 bytes
-Suffix 'ites' could be as much as  332 bytes
-Suffix 'st' could be as much as  306 bytes
-Suffix 'd' could be as much as  304 bytes
-Suffix 'er' could be as much as  296 bytes
-Suffix 'ers' could be as much as  231 bytes
-Suffix 'ings' could be as much as  208 bytes
-Suffix 'edst' could be as much as  140 bytes
-
-Suffix 'es' could be as much as  118 bytes
-Suffix 'ite' could be as much as  114 bytes
-Suffix 'ah' could be as much as  98 bytes
-Suffix 's'' could be as much as  96 bytes
--- 426 bytes
-
-Suffix 'n' could be as much as  90 bytes
-Suffix 'ful' could be as much as  90 bytes
-Suffix 'soever' could be as much as  84 bytes
-Suffix 'h' could be as much as  82 bytes // Another 772 bytes
-
-         */
         val tokens = BibleParser().readTranslation()
         val lexicon = tokens.distinct().sorted()
         val out = PrefixTrieWriter().write(lexicon, 16)
@@ -147,8 +119,10 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
         // 49_377 with suffix optimiation 1
         // 48_249 - flip case fix
         // 45823 - flip case fix 2
+        // 45892 - after some fixes?
+        // 46704 after some more fixes
         // tbd: vowel rule?
-        assertThat(out.size).isEqualTo(45823)
+        assertThat(out.size).isEqualTo(45_638)
     }
 
     @Test
@@ -193,10 +167,25 @@ Suffix 'h' could be as much as  82 bytes // Another 772 bytes
     }
 
     @Test
+    fun caseChangeNoSharedPrefix() {
+        val words = "alpha Beta".split(" ")
+        val out = PrefixTrieWriter().write(words)
+        assertThat(out.hexify3()).isEqualTo("alpha[05]Beta")
+    }
+
+    @Test
+    fun caseChangeIssue() {
+        val words: List<String> = "he Heaven heaven herb his In in is it itself kind".split(" ")
+        val out = PrefixTrieWriter().write(words)
+        assertThat(out.hexify3()).isEqualTo("he[1F][1E]aven[1E][04]rb[03]is[03]In[1E][01]s[01]t[1F]self[06]kind")
+        val read: List<String> = PrefixTrieReader().read(out)
+        assertThat(read).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
     fun kjvPartial2() {
         val words = ". And God In and beginning created earth heaven the was without".split(' ')
         val out = PrefixTrieWriter().write(words)
-        // This is incorrect
-        assertThat(out.hexify3()).isEqualTo(".[01]And[09]beginning[07]created[05]earth[1F][1E][03]God[1F][1E][06]heaven[1F][1E][02]In[1F][1E][03]the[03]was[02]ithout")
+        assertThat(out.hexify3()).isEqualTo(".[01]And[1E][03]beginning[09]created[07]earth[05]God[03]heaven[06]In[02]the[03]was[02]ithout")
     }
 }

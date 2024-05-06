@@ -99,17 +99,124 @@ class PrefixTrieReaderTest {
     }
 
     @Test
+    fun caseChangeNoSharedPrefix() {
+        val words = "alpha Beta".split(" ")
+        testDecode("alpha[05]Beta", words)
+    }
+
+    @Test
+    fun kjvPartial2() {
+        val words = ". And God In and beginning created earth heaven the was without".split(' ')
+        testDecode(
+            ".[01]And[1E][03]beginning[09]created[07]earth[05]God[03]heaven[06]In[02]the[03]was[02]ithout",
+            words
+        )
+    }
+
+    @Test
+    fun issue1() {
+        val words = listOf("signs", "sixth", "So", "so", "stars", "Spirit", "subdue")
+        val out = PrefixTrieWriter().write(words, 0)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("signs[03]xth[1F][1E][04]o[1E][1E][01]pirit[1F][1E][05]tars[04]ubdue")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
+    fun suffixBackspaceIssue() {
+        val words = "herb herbs hymn hymns his In in is it itself kind kinds".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("[0D]s[1F]herb[0D][03]is[02]ymn[0D][04]In[1E][01]s[01]t[1F]self[06]kind[0D]")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+    // Should not have a capital Sea
+    //
+
+    @Test
+    fun capitalizationSuffixIssue() {
+        val words = "saying sayings sea Seas seas seed seeds".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo(
+            "[0D]s[1F]" +
+                    "saying[0D][05]ea[0D][1E]s[1F][1E][02]ed[0D]"
+        )
+        assertThat(decoded).contains("Seas").doesNotContain("Sea")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
+    fun anotherIssue() {
+        val words = "give given God I In".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("[0D]n[1F]give[0D][1E][03]od[03]I[0D]")
+        assertThat(decoded).contains("give").doesNotContain("Give").contains("given").doesNotContain("Given")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
+    fun allCaps() {
+        val words = "test Test TEST".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("TEST[03]est[1E]")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
+    fun caseSwitchingAndSuffixes() {
+        //hath have having head heads heard
+        //he is missing
+        val words = "He he Heth hundred hundredth live liveth".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("[0D]th[1F]He[0D][1E][1F][01]undred[0D][07]live[0D]")
+        assertThat(decoded).contains("He").contains("he")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+    @Test
+    fun issue() {
+        val words = "Be be Because because became been before Therefore the there therefore whe where wherefore herefore".split(' ')
+        val out = PrefixTrieWriter().write(words, 16)
+        println("============= READING =============")
+        val decoded = PrefixTrieReader().read(out)
+        assertThat(out.hexify3()).isEqualTo("[0E]refore[0F]cause[0D]fore[10]re[1F]" +
+                "Be[0F]" + // Be, Because
+                "[1E][1F]" + // be
+                "[0F]" + // because
+                "[0D]" + // before
+                "came[04]en[04]herefore[08]the[0E][10][1E]refore[09]whe[0E][10]")
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(words)
+    }
+
+
+    @Test
     fun kjvFull() {
         LogManager.getLogManager().getLogger("").handlers.forEach { it.level = Level.FINEST }
 
-        val tokens = BibleParser().readTranslation().take(20)
+        val tokens = BibleParser().readTranslation()
         val lexicon = tokens.filterNot { it in listOf("-VERSE-", "-BOOK-", "-CHAPTER-") }.toSortedSet()
         val out = PrefixTrieWriter().write(lexicon, 16)
         println(out.hexify3())
+
         val decoded = PrefixTrieReader().read(out)
+
+        println("Input : ${lexicon.sorted().joinToString(" ")}")
+        println("Output: ${decoded.sorted().joinToString(" ")}")
+
         // Actual: 13545
         // Expected: 13882
         assertThat(decoded).hasSameSizeAs(lexicon)
+        assertThat(decoded).containsExactlyInAnyOrderElementsOf(lexicon)
     }
 
     private fun testDecode(words: String, expected: List<String>) {

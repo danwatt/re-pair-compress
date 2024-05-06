@@ -8,5 +8,7 @@ fun String.flipFirstLetterCase(): String =
     }
 
 fun String.differsOnlyByFirstCapitalization(other: String): Boolean =
-    this.equals(other, ignoreCase = true) && this.substring(1) == other.substring(1)
+    this.equals(other, ignoreCase = true) &&
+            this.length >= 1 &&
+            this.substring(1) == other.substring(1)
 

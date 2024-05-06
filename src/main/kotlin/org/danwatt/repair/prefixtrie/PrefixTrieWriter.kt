@@ -6,12 +6,10 @@ import kotlin.math.min
 
 @ExperimentalStdlibApi
 class PrefixTrieWriter {
-    private val log = Logger.getLogger(PrefixTrieWriter::class.java.name)
-
     fun write(incomingWords: Collection<String>, maxSuffixCodes: Int = 0): CharArray {
         println("Words are: ${incomingWords.joinToString(" ")}")
         val suffixes = topSuffixes(incomingWords, min(maxSuffixCodes, 16))
-        val suffixMapping: Map<String, Char> = suffixes.mapIndexed { index, s -> s to (Char(13 + index)) }.toMap()
+        val suffixMapping: Map<String, Char> = suffixes.mapIndexed { index, s -> s to (Char(13 + index)) }.sortedByDescending { it.first.length }.toMap()
         suffixMapping.forEach { (suffix, c) ->
             println("Suffix '$suffix' will be represented by character 0x${c.code.toUByte().toHexString()}")
         }
@@ -29,11 +27,11 @@ class PrefixTrieWriter {
         writeSuffixHeader(suffixMapping, outputList)
         var previousWord = ""
 
-        var preserveFlipCaseForOneIteration = false
-
         while (remainingWords.isNotEmpty()) {
             val word = remainingWords.removeFirst()
+
             var workingWord = word
+            println("Working word: '$workingWord'")
 
             // Capitals sort first
             if (workingWord.differsOnlyByFirstCapitalization(previousWord)) {
@@ -43,27 +41,33 @@ class PrefixTrieWriter {
                     outputList.removeLast()
                 }
                 previousWord = previousWord.flipFirstLetterCase()
-                println("Adding FLIP_CASE_MARKER for '$workingWord' from '$p'")
+                println("Adding FLIP_CASE_MARKER '$p' -> '$previousWord'")
+                val addWordMarker = outputList.last() in suffixMapping.values
                 outputList.add(FLIP_CASE_MARKER)
+
+                if (addWordMarker) {
+                    println("Adding explicit WORD_MARKER")
+                    outputList.add(WORD_MARKER)
+                    outputList.add(WORD_MARKER)
+                }
                 addSuffixes(suffixMapping, workingWord, sortedIncoming, remainingWords, outputList)
                 continue
             } else if (previousWord.isNotBlank()
                 && workingWord.first().isUpperCase() != previousWord.first().isUpperCase()
                 && workingWord.first().isLetter()
                 && previousWord.first().isLetter()
+                && previousWord.first().equals(workingWord.first(), ignoreCase = true)
             ) {
                 println("Prefixes differ by case, flipping case ('$previousWord' vs '$workingWord')")
-                if (outputList.isEmpty() || outputList.last() != FLIP_CASE_MARKER) {
                     outputList.add(FLIP_CASE_MARKER)
-                }
                 previousWord = previousWord.flipFirstLetterCase()
-                preserveFlipCaseForOneIteration = true
             }
 
             val commonPrefix = commonPrefix(previousWord, workingWord)
+            println("Checking for backspaces. Previous: '$previousWord', working: '$workingWord', common: '$commonPrefix' (${commonPrefix.length})")
             var backspaces = when {
-                commonPrefix.isNotEmpty() -> previousWord.length - commonPrefix.length
-                previousWord.isNotEmpty() -> workingWord.length
+                commonPrefix.isNotBlank() -> previousWord.length - commonPrefix.length
+                previousWord.isNotBlank() -> previousWord.length
                 else -> 0
             }
 
@@ -73,11 +77,7 @@ class PrefixTrieWriter {
                 if (outputList.isNotEmpty() && outputList.last() == WORD_MARKER) {
                     println("Removing redundant last WORD_MARKER")
                     outputList.removeLast()
-                } else if (outputList.isNotEmpty() && outputList.last() == FLIP_CASE_MARKER && !preserveFlipCaseForOneIteration) {
-                    println("Removing redundant last FLIP_CASE_MARKER")
-                    outputList.removeLast()
                 }
-                preserveFlipCaseForOneIteration = false
 
                 println("Adding $backspaces backspaces, top word is '$previousWord'. Common prefix is '$commonPrefix'")
 
@@ -91,12 +91,10 @@ class PrefixTrieWriter {
                 }
             }
             if (workingWord.startsWith(previousWord)) {
+                println("'$workingWord' starts with '$previousWord', removing prefix")
+                // this may be off...
                 workingWord = workingWord.removePrefix(previousWord)
             }
-            if (suffixMapping.contains(workingWord)) {
-                println("Current working word '${workingWord}', part of '${word}', is a suffix")
-                outputList.add(suffixMapping[workingWord]!!)
-            } else {
                 workingWord.toCharArray().forEach { char ->
                     previousWord += char
                     println("Adding '$char'")
@@ -110,10 +108,18 @@ class PrefixTrieWriter {
                     println("Adding WORD_MARKER - $workingWord")
                     outputList.add(WORD_MARKER)
                 }
-            }
         }
         if (outputList.last() == WORD_MARKER) {
             outputList.removeLast()
+        }
+        //This is dumb, but works
+        var i = 1
+        while (i < outputList.size) {
+            if (outputList[i-1] == outputList[i] && outputList[i] == WORD_MARKER) {
+                outputList.removeAt(i)
+                println("Removing extra WORD_MARKER at $i")
+            }
+            i++
         }
         return outputList.toCharArray()
     }
@@ -121,7 +127,7 @@ class PrefixTrieWriter {
     private fun commonPrefix(wordToKeepFrom: String, other: String): String {
         var s = ""
         for (i in 0 until minOf(wordToKeepFrom.length, other.length)) {
-            if (wordToKeepFrom[i].equals(other[i], true)) {
+            if (wordToKeepFrom[i].equals(other[i], false)) {
                 s += wordToKeepFrom[i]
             } else {
                 break
@@ -140,6 +146,7 @@ class PrefixTrieWriter {
                 outputList.add(c)
                 outputList.addAll(suffix.asSequence())
             }
+            outputList.add(WORD_MARKER)
             outputList.add(WORD_MARKER)
         }
     }
